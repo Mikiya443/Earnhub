@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: earnhubs-django
+    runtime: python
+    rootDir: django_backend
+    buildCommand: ./build.sh
+    startCommand: gunicorn config.wsgi:application
+    healthCheckPath: /admin/login/
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: earnhubs-db
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://earnhubs-frontend.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://earnhubs-frontend.onrender.com
+      - key: DJANGO_ALLOWED_HOSTS
+        value: earnhubs-django.onrender.com
+      - key: NODE_REALTIME_URL
+        value: https://earnhubs-realtime.onrender.com
+
+  - type: web
+    name: earnhubs-realtime
+    runtime: node
+    rootDir: realtime
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: earnhubs-django
+          envVarKey: DJANGO_SECRET_KEY
+      - key: FRONTEND_URL
+        value: https://earnhubs-frontend.onrender.com
+      - key: PORT
+        value: "10000"
+      - key: INTERNAL_SECRET
+        generateValue: true
+
+  - type: web
+    name: earnhubs-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://earnhubs-django.onrender.com/api
+      - key: VITE_REALTIME_URL
+        value: https://earnhubs-realtime.onrender.com
+
+databases:
+  - name: earnhubs-db
+    databaseName: earnhubs
+    user: earnhubs
